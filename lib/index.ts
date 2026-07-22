@@ -244,3 +244,60 @@ export namespace getSystemProcessList {
 // and manually set the "modern" promisify symbol: https://github.com/microsoft/TypeScript/issues/36813
 [getProcessTree, getProcessList, getProcessCpuUsage, getSystemProcessList].forEach(func =>
   Object.defineProperty(func, promisify.custom, { enumerable: false, value: func.__promisify__ }));
+
+/**
+ * Raw WTS session-change codes as delivered by WM_WTSSESSION_CHANGE (wParam).
+ * See https://learn.microsoft.com/windows/win32/termserv/wm-wtssession-change
+ */
+export enum SessionEvent {
+  ConsoleConnect = 1,
+  ConsoleDisconnect = 2,
+  RemoteConnect = 3,
+  RemoteDisconnect = 4,
+  SessionLogon = 5,
+  SessionLogoff = 6,
+  SessionLock = 7,
+  SessionUnlock = 8
+}
+
+export interface ISessionChange {
+  /** The raw WTS_* event code (see {@link SessionEvent}). */
+  event: number;
+  /** The Windows session id the change applies to. */
+  sessionId: number;
+}
+
+/**
+ * Subscribes to WTS session-change notifications (console/remote connect & disconnect,
+ * lock/unlock, logon/logoff) for the current session. Backed by an invisible message-only
+ * window on a dedicated native thread. Only one subscription is active at a time; call
+ * {@link stopSessionNotifications} to release it. No-op on non-Windows platforms.
+ */
+export function onSessionChange(callback: (evt: ISessionChange) => void): void {
+  if (process.platform !== 'win32') {
+    return;
+  }
+  native.startSessionNotifications(callback);
+}
+
+/** Stops session-change notifications started by {@link onSessionChange}. */
+export function stopSessionNotifications(): void {
+  if (process.platform !== 'win32') {
+    return;
+  }
+  native.stopSessionNotifications();
+}
+
+/**
+ * Reads a REG_SZ value, mirroring `reg query "<keyPath>" /v <valueName>`. `keyPath` includes the
+ * hive prefix (e.g. `HKCU\Volatile Environment`). Typical VDI use reads `CLIENTNAME` /
+ * `ViewClient_MachineName`. When `sessionId` is provided the per-session subkey
+ * (`<keyPath>\<sessionId>`) is tried first, falling back to `keyPath`. Returns `''` when the
+ * value is absent or on non-Windows platforms.
+ */
+export function readRegistryValue(keyPath: string, valueName: string, sessionId?: number): string {
+  if (process.platform !== 'win32') {
+    return '';
+  }
+  return native.readRegistryValue(keyPath, valueName, sessionId);
+}

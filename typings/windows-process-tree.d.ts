@@ -90,4 +90,42 @@ declare module '@vscode/windows-process-tree' {
   namespace getSystemProcessList {
     function __promisify__(flags?: ProcessDataFlag): Promise<IProcessInfo[]>;
   }
+
+  /**
+   * Raw WTS session-change codes delivered by WM_WTSSESSION_CHANGE (wParam).
+   */
+  export enum SessionEvent {
+    ConsoleConnect = 1,
+    ConsoleDisconnect = 2,
+    RemoteConnect = 3,
+    RemoteDisconnect = 4,
+    SessionLogon = 5,
+    SessionLogoff = 6,
+    SessionLock = 7,
+    SessionUnlock = 8
+  }
+
+  export interface ISessionChange {
+    /** The raw WTS_* event code (see SessionEvent). */
+    event: number;
+    /** The Windows session id the change applies to. */
+    sessionId: number;
+  }
+
+  /**
+   * Subscribes to WTS session-change notifications for the current session. Only one
+   * subscription is active at a time; call stopSessionNotifications to release it.
+   * No-op on non-Windows platforms.
+   */
+  export function onSessionChange(callback: (evt: ISessionChange) => void): void;
+
+  /** Stops session-change notifications started by onSessionChange. */
+  export function stopSessionNotifications(): void;
+
+  /**
+   * Reads a REG_SZ value, mirroring `reg query "<keyPath>" /v <valueName>`. keyPath includes the
+   * hive prefix (e.g. HKCU\Volatile Environment). When sessionId is provided the per-session
+   * subkey is tried first, falling back to keyPath. Returns '' when absent or on non-Windows.
+   */
+  export function readRegistryValue(keyPath: string, valueName: string, sessionId?: number): string;
 }

@@ -13,10 +13,12 @@
             "src/process.cc",
             "src/process_worker.cc",
             "src/process_commandline.cc",
-             "src/process_owner.cc"   
+             "src/process_owner.cc",
+            "src/session_notifier.cc",
+            "src/volatile_env.cc"
           ],
           "include_dirs": [],
-          "libraries": [ 'psapi.lib', 'advapi32.lib' ],
+          "libraries": [ 'psapi.lib', 'advapi32.lib', 'wtsapi32.lib', 'user32.lib' ],
           "msvs_configuration_attributes": {
             "SpectreMitigation": "Spectre"
           },

@@ -6,6 +6,8 @@
 #include <napi.h>
 #include "cpu_worker.h"
 #include "process_worker.h"
+#include "session_notifier.h"
+#include "volatile_env.h"
 
 void GetProcessList(const Napi::CallbackInfo& args) {
   Napi::Env env(args.Env());
@@ -53,6 +55,9 @@ void GetProcessCpuUsage(const Napi::CallbackInfo& args) {
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("getProcessList", Napi::Function::New(env, GetProcessList));
   exports.Set("getProcessCpuUsage", Napi::Function::New(env, GetProcessCpuUsage));
+  exports.Set("startSessionNotifications", Napi::Function::New(env, StartSessionNotifications));
+  exports.Set("stopSessionNotifications", Napi::Function::New(env, StopSessionNotifications));
+  exports.Set("readRegistryValue", Napi::Function::New(env, ReadRegistryValue));
   return exports;
 }
 
