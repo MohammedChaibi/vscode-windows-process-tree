@@ -1,7 +1,7 @@
 {
-  "name": "@vscode/windows-process-tree",
+  "name": "@mohammedchaibi/windows-process-tree",
   "version": "0.7.0",
-  "description": "Fetch a Windows process tree fast",
+  "description": "Fetch a Windows process tree fast, with WTS session-change notifications and registry value reads",
   "main": "lib/index.js",
   "types": "typings/windows-process-tree.d.ts",
   "scripts": {
@@ -11,15 +11,15 @@
     "watch": "tsc -w",
     "lint": "tslint lib/*.ts typings/*.ts *.ts"
   },
-  "author": "Microsoft Corporation",
+  "author": "Mohammed Chaibi",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/microsoft/vscode-windows-process-tree.git"
+    "url": "https://github.com/MohammedChaibi/vscode-windows-process-tree.git"
   },
-  "homepage": "https://github.com/microsoft/vscode-windows-process-tree",
+  "homepage": "https://github.com/MohammedChaibi/vscode-windows-process-tree",
   "bugs": {
-    "url": "https://github.com/microsoft/vscode-windows-process-tree/issues"
+    "url": "https://github.com/MohammedChaibi/vscode-windows-process-tree/issues"
   },
   "dependencies": {
     "node-addon-api": "7.1.0"

@@ -6,7 +6,7 @@
 import { promisify } from 'util';
 
 const native = process.platform === 'win32' ? require('../build/Release/windows_process_tree.node') : undefined;
-import { IProcessInfo, IProcessTreeNode, IProcessCpuInfo } from '@vscode/windows-process-tree';
+import { IProcessInfo, IProcessTreeNode, IProcessCpuInfo } from '@mohammedchaibi/windows-process-tree';
 
 export enum ProcessDataFlag {
   None = 0,

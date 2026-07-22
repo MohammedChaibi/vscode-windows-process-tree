@@ -8,7 +8,7 @@ import * as child_process from 'child_process';
 import * as path from 'path';
 import { getProcessTree, getProcessList, getProcessCpuUsage, ProcessDataFlag, buildProcessTree, filterProcessList } from './index';
 import { Worker, isMainThread } from 'worker_threads';
-import { IProcessCpuInfo, IProcessInfo, IProcessTreeNode } from '@vscode/windows-process-tree';
+import { IProcessCpuInfo, IProcessInfo, IProcessTreeNode } from '@mohammedchaibi/windows-process-tree';
 import * as promises from './promises';
 const isWindows = process.platform === 'win32';
 

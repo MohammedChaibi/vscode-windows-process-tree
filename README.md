@@ -1,83 +1,122 @@
-# @vscode/windows-process-tree
+# @mohammedchaibi/windows-process-tree
 
-[![Build status](https://github.com/microsoft/vscode-windows-process-tree/actions/workflows/node.js.yml/badge.svg)](https://github.com/microsoft/vscode-windows-process-tree/actions/workflows/node.js.yml)
+A Node.js / Electron native (N-API) library for Windows that quickly fetches process‑tree
+information and, in addition, exposes Windows **session‑change notifications**
+(`WM_WTSSESSION_CHANGE`) and direct **registry value reads**.
 
-[![npm version](https://badge.fury.io/js/@vscode%2Fwindows-process-tree.svg)](https://badge.fury.io/js/@vscode%2Fwindows-process-tree)
+> This is a standalone project derived from
+> [microsoft/vscode-windows-process-tree](https://github.com/microsoft/vscode-windows-process-tree)
+> (MIT). It extends the original process‑tree functionality with additional process information
+> (process **owner**, and a flat system‑wide process list), and adds Windows session‑change and
+> registry APIs used for VDI session‑roaming detection. See
+> [Attribution & license](#attribution--license).
 
-A Node.js library that enables quickly fetching process tree information for a particular process ID on Windows.
+## Install
 
-## Usage
+```sh
+npm install @mohammedchaibi/windows-process-tree
+```
+
+Windows‑only. All functions are no‑ops or throw on non‑Windows platforms (noted per API below).
+The package ships a prebuilt binary and its source (`binding.gyp` + `src/`) so it can also be
+rebuilt against Electron via `electron-rebuild`.
+
+## Process tree API
 
 ```ts
 import * as child_process from 'child_process';
-import { getProcessTree } from '@vscode/windows-process-tree';
+import { getProcessTree } from '@mohammedchaibi/windows-process-tree';
 
 if (process.platform === 'win32') {
   child_process.spawn('cmd.exe');
   getProcessTree(process.pid, (tree) => {
     console.log(tree);
   });
-  // { pid: 11168,
-  //   name: 'node.exe',
-  //   children:
-  //    [ { pid: 1472, name: 'cmd.exe', children:[] },
-
-  getProcessTree(0, (tree) => {
-    console.log(tree);
-  });
-  // undefined
+  // { pid: 11168, name: 'node.exe', children: [ { pid: 1472, name: 'cmd.exe', children: [] } ] }
 }
 ```
 
-For the full API look at the [typings file](./typings/windows-process-tree.d.ts).
+Also available: `getProcessList`, `getProcessCpuUsage`, `getSystemProcessList`,
+`buildProcessTree`, `filterProcessList`, and `ProcessDataFlag`. Each callback‑based function has a
+`util.promisify`‑compatible form. For the full API see the
+[typings file](./typings/windows-process-tree.d.ts).
 
-## Why a native node module?
+Beyond the upstream project, this fork adds to the process‑info side: the process **owner**
+(request it with `ProcessDataFlag.Owner`; returned in the `owner` field) and
+`getSystemProcessList` — a flat, system‑wide listing of all processes rather than a single tree.
 
-The current convention is to run wmic.exe to query a particular process ID and then parse the output like so:
+## Session‑change notifications
 
-```js
-let cp = require('child_process');
+Subscribe to Windows Terminal Services session events for the current session (console/remote
+connect & disconnect, lock/unlock, logon/logoff). Backed by an invisible message‑only window on a
+dedicated native thread — no visible window is created. Only one subscription is active at a time.
 
-function getChildProcessDetails(pid, cb) {
-    let args = ['process', 'where', `parentProcessId=${pid}`, 'get', 'ExecutablePath,ProcessId'];
-    cp.execFile('wmic.exe', args, (err, stdout, stderr) => {
-        if (err) {
-            throw new Error(err);
-        }
-        if (stderr.length > 0) {
-            cb([]);
-        }
-        var childProcessLines = stdout.split('\n').slice(1).filter(str => !/^\s*$/.test(str));
-        var childProcessDetails = childProcessLines.map(str => {
-            var s = str.split('  ');
-            return { executable: s[0], pid: Number(s[1]) };
-        });
-        cb(childProcessDetails);
-    });
-}
+```ts
+import { onSessionChange, stopSessionNotifications, SessionEvent } from '@mohammedchaibi/windows-process-tree';
+
+onSessionChange(({ event, sessionId }) => {
+  if (event === SessionEvent.RemoteDisconnect || event === SessionEvent.ConsoleDisconnect) {
+    console.log('session detached', sessionId);
+  } else if (event === SessionEvent.RemoteConnect || event === SessionEvent.ConsoleConnect) {
+    console.log('session attached', sessionId);
+  }
+});
+
+// later, on shutdown:
+stopSessionNotifications();
 ```
 
-This has two problems:
+`event` is the raw `WM_WTSSESSION_CHANGE` `wParam` code, exposed as the `SessionEvent` enum:
 
-1. It takes > 100ms\* to spin up a process and get the output returned.
-2. It only goes one level deep. Meaning, if the process tree is deeply nested or processes in the tree have many children it will take a lot more time and need a bunch of processes launched.
+| Value | `SessionEvent`      |
+| ----- | ------------------- |
+| 1     | `ConsoleConnect`    |
+| 2     | `ConsoleDisconnect` |
+| 3     | `RemoteConnect`     |
+| 4     | `RemoteDisconnect`  |
+| 5     | `SessionLogon`      |
+| 6     | `SessionLogoff`     |
+| 7     | `SessionLock`       |
+| 8     | `SessionUnlock`     |
 
-Both of which are only exacerbated by the fact that this information is something that a consumer may want to poll for.
+On non‑Windows platforms `onSessionChange` / `stopSessionNotifications` are no‑ops.
 
-The native node module uses Windows APIs to get the process details and then they are organized into a tree, getting the entire tree's details in < 20ms\*.
+## Registry value reads
 
-\* On my machine :slightly_smiling_face:
+Read a `REG_SZ` value, mirroring `reg query "<keyPath>" /v <valueName>`. `keyPath` includes the
+hive prefix (e.g. `HKCU\Volatile Environment`, `HKLM\SOFTWARE\...`). When `sessionId` is provided,
+the per‑session subkey (`<keyPath>\<sessionId>`) is tried first, falling back to `keyPath`. Returns
+`''` when the value is absent or on non‑Windows platforms.
 
-## Contributing
+```ts
+import { readRegistryValue } from '@mohammedchaibi/windows-process-tree';
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.microsoft.com.
+// e.g. the VDI client machine name published into HKCU\Volatile Environment
+const clientName = readRegistryValue('HKCU\\Volatile Environment', 'CLIENTNAME');
+```
 
-When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+## Why a native module?
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+Shelling out to `wmic.exe`/`reg.exe` is slow (a process spawn per call, ~100ms+) and, for the
+process tree, only goes one level deep. This module uses Windows APIs directly and returns the whole
+tree in well under 20ms, while the registry/session APIs avoid spawning `reg query` entirely.
+
+## Building
+
+```sh
+npm install
+npx node-gyp rebuild   # build the native addon (build/Release/windows_process_tree.node)
+npm run compile        # compile the TypeScript wrapper (lib/*.js)
+npm test
+```
+
+Requires the Windows build toolchain (Visual Studio C++ + node-gyp).
+
+## Attribution & license
+
+MIT. Originally created by Microsoft Corporation as
+[microsoft/vscode-windows-process-tree](https://github.com/microsoft/vscode-windows-process-tree);
+this fork extends the process‑info APIs (process owner, system‑wide process list), adds
+session‑change and registry APIs, and is maintained separately. The original copyright notice is
+retained in [LICENSE](./LICENSE) as required. This project is not affiliated with or endorsed by
+Microsoft.

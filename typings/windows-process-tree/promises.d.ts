@@ -3,20 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-declare module '@vscode/windows-process-tree/promises' {
+declare module '@mohammedchaibi/windows-process-tree/promises' {
   import {
     IProcessCpuInfo,
     IProcessInfo,
     IProcessTreeNode,
     ProcessDataFlag,
-  } from '@vscode/windows-process-tree';
+  } from '@mohammedchaibi/windows-process-tree';
 
   export {
     IProcessCpuInfo,
     IProcessInfo,
     IProcessTreeNode,
     ProcessDataFlag,
-  } from '@vscode/windows-process-tree';
+  } from '@mohammedchaibi/windows-process-tree';
 
   /**
    * Returns a tree of processes with the rootPid process as the root.
