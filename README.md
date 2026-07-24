@@ -95,6 +95,19 @@ import { readRegistryValue } from '@mohammedchaibi/windows-process-tree';
 const clientName = readRegistryValue('HKCU\\Volatile Environment', 'CLIENTNAME');
 ```
 
+When the exact subkey is **dynamic or unknown** — e.g. multi-session hosts publish the client name
+at `HKCU\Volatile Environment\<sessionId>\CLIENTNAME` where `<sessionId>` changes — search by name
+instead. `findRegistryValue` walks a root key and its subkeys and returns the first non-empty match
+(`rootKeyPath` defaults to `HKCU\Volatile Environment`, `maxDepth` defaults to 1):
+
+```ts
+import { findRegistryValue } from '@mohammedchaibi/windows-process-tree';
+
+// Finds CLIENTNAME whether it's directly under Volatile Environment or in a per-session subkey,
+// without configuring the exact path:
+const clientName = findRegistryValue('CLIENTNAME');
+```
+
 ## Why a native module?
 
 Shelling out to `wmic.exe`/`reg.exe` is slow (a process spawn per call, ~100ms+) and, for the

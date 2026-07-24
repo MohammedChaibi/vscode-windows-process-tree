@@ -128,4 +128,12 @@ declare module '@mohammedchaibi/windows-process-tree' {
    * subkey is tried first, falling back to keyPath. Returns '' when absent or on non-Windows.
    */
   export function readRegistryValue(keyPath: string, valueName: string, sessionId?: number): string;
+
+  /**
+   * Searches for a REG_SZ value by name under a root key and its subkeys, returning the first
+   * non-empty match. Use when the exact subkey is dynamic/unknown (e.g. a session-dependent
+   * HKCU\Volatile Environment\<sessionId>). rootKeyPath defaults to HKCU\Volatile Environment;
+   * maxDepth defaults to 1. Returns '' when absent or on non-Windows.
+   */
+  export function findRegistryValue(valueName: string, rootKeyPath?: string, maxDepth?: number): string;
 }

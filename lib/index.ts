@@ -301,3 +301,18 @@ export function readRegistryValue(keyPath: string, valueName: string, sessionId?
   }
   return native.readRegistryValue(keyPath, valueName, sessionId);
 }
+
+/**
+ * Searches for a `REG_SZ` value BY NAME under a root key and its subkeys, returning the first
+ * non-empty match. Use this when the exact subkey is dynamic/unknown — e.g. the VDI client name
+ * that lives at `HKCU\Volatile Environment\CLIENTNAME` in single-session but
+ * `HKCU\Volatile Environment\<sessionId>\CLIENTNAME` in multi-session. `rootKeyPath` defaults to
+ * `HKCU\Volatile Environment`; `maxDepth` defaults to 1 (root + its immediate subkeys). Returns
+ * `''` when not found or on non-Windows platforms.
+ */
+export function findRegistryValue(valueName: string, rootKeyPath?: string, maxDepth?: number): string {
+  if (process.platform !== 'win32') {
+    return '';
+  }
+  return native.findRegistryValue(valueName, rootKeyPath, maxDepth);
+}

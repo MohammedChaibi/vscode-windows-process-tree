@@ -58,6 +58,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("startSessionNotifications", Napi::Function::New(env, StartSessionNotifications));
   exports.Set("stopSessionNotifications", Napi::Function::New(env, StopSessionNotifications));
   exports.Set("readRegistryValue", Napi::Function::New(env, ReadRegistryValue));
+  exports.Set("findRegistryValue", Napi::Function::New(env, FindRegistryValue));
   return exports;
 }
 
