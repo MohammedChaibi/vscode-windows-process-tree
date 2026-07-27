@@ -1,15 +1,20 @@
 {
   "name": "@mohammedchaibi/windows-process-tree",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Fetch a Windows process tree fast, with WTS session-change notifications and registry value reads",
   "main": "lib/index.js",
   "types": "typings/windows-process-tree.d.ts",
   "scripts": {
-    "test": "mocha lib/test.js -t 5000",
-    "prepublish": "tsc",
+    "install": "node scripts/install.js",
+    "prepare": "tsc",
     "compile": "tsc",
     "watch": "tsc -w",
-    "lint": "tslint lib/*.ts typings/*.ts *.ts"
+    "lint": "tslint lib/*.ts typings/*.ts *.ts",
+    "test": "mocha lib/test.js -t 5000",
+    "rebuild": "node-gyp rebuild",
+    "prebuild": "node scripts/prebuild.js",
+    "prebuild:arm64": "node scripts/prebuild.js --arch arm64",
+    "prebuild:check": "node scripts/check-prebuilds.js"
   },
   "author": "Mohammed Chaibi",
   "license": "MIT",
@@ -21,13 +26,45 @@
   "bugs": {
     "url": "https://github.com/MohammedChaibi/vscode-windows-process-tree/issues"
   },
+  "keywords": [
+    "windows",
+    "process-tree",
+    "native",
+    "node-api",
+    "electron",
+    "prebuilt",
+    "session-change",
+    "registry"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/index.js.map",
+    "lib/index.ts",
+    "lib/promises.js",
+    "lib/promises.js.map",
+    "lib/promises.ts",
+    "typings/",
+    "src/",
+    "prebuilds/",
+    "scripts/install.js",
+    "binding.gyp",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
   "dependencies": {
-    "node-addon-api": "7.1.0"
+    "node-addon-api": "7.1.0",
+    "node-gyp-build": "^4.8.4"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.0",
     "@types/node": "^14.14.0",
     "mocha": "^10.0.0",
+    "prebuildify": "^6.0.1",
     "tslint": "5.9.1",
     "typescript": "^4.0.0"
   }

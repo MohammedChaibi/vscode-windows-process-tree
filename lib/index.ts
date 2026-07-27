@@ -5,7 +5,11 @@
 
 import { promisify } from 'util';
 
-const native = process.platform === 'win32' ? require('../build/Release/windows_process_tree.node') : undefined;
+// Resolves a prebuilt binary from `prebuilds/<platform>-<arch>/` when one ships with the
+// package, and falls back to a locally compiled `build/Release` binary otherwise.
+const native = process.platform === 'win32'
+  ? require('node-gyp-build')(require('path').join(__dirname, '..'))
+  : undefined;
 import { IProcessInfo, IProcessTreeNode, IProcessCpuInfo } from '@mohammedchaibi/windows-process-tree';
 
 export enum ProcessDataFlag {
@@ -235,6 +239,7 @@ export function getSystemProcessList(
 }
 
 export namespace getSystemProcessList {
+  // tslint:disable-next-line:variable-name
   export const __promisify__ = (flags?: ProcessDataFlag): Promise<IProcessInfo[]> =>
     new Promise((resolve, reject) => {
       getSystemProcessList(list => list ? resolve(list) : reject(new Error('System enumeration failed')), flags);

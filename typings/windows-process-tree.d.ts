@@ -26,7 +26,7 @@ declare module '@mohammedchaibi/windows-process-tree' {
      */
     commandLine?: string;
 
-    owner?: string; 
+    owner?: string;
   }
 
   export interface IProcessCpuInfo extends IProcessInfo {

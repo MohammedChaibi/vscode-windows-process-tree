@@ -25,7 +25,7 @@ function pollUntil(makePromise: () => Promise<boolean>, cb: () => void, interval
 }
 
 if (isWindows) {
-  const native = require('../build/Release/windows_process_tree.node');
+  const native = require('node-gyp-build')(path.join(__dirname, '..'));
 
   describe('getRawProcessList', () => {
     it('should throw if arguments are not provided', (done) => {
