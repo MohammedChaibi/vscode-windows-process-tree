@@ -151,6 +151,14 @@ Requires a stock Visual Studio **"Desktop development with C++"** workload (VS20
 Python, which node-gyp needs. node-gyp picks whichever Visual Studio it discovers and uses that
 install's default toolset, so no configuration is needed for either version.
 
+> **Building from source needs a recent node-gyp.** npm 10 — what Node.js 20 and 22 ship — bundles
+> node-gyp 10.1.0, which cannot detect **Visual Studio 18**: it reports
+> `unknown version "undefined"` and fails with `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`. This repo pins
+> a current node-gyp as a devDependency and the install hook prefers it over npm's bundled copy.
+> If you are compiling this package from source in your own project on Node 20/22 with VS18
+> installed, add `node-gyp` to your devDependencies or install it globally. Consumers using the
+> published prebuilt binary are unaffected, since nothing is compiled.
+
 ### Build knobs
 
 Both are read as `npm_config_*` environment variables and forwarded to gyp (see `binding.gyp`):

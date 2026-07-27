@@ -87,7 +87,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolset: [v142, v143]
+        # v143 only. The runner image ships Spectre-mitigated libs for the latest toolset but
+        # not for v142, so `hardened_build=1` + v142 fails with the very MSB8040 this release
+        # fixes -- a property of the image, not of this package. Published prebuilds are v143.
+        toolset: [v143]
     env:
       npm_config_msvs_toolset: ${{ matrix.toolset }}
       # What the published prebuilds are built with.

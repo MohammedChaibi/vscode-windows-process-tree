@@ -60,6 +60,12 @@ changes. Points worth checking:
    with mitigation on) rather than a source build, or set `npm_config_hardened_build=1` when
    building — which requires the optional Spectre libs VS component to be installed.
 6. **Air-gapped or proxied installs get simpler**, since no Node headers are fetched.
+7. **If you compile from source, use a recent node-gyp.** npm 10 (Node.js 20 and 22) bundles
+   node-gyp 10.1.0, which cannot detect Visual Studio 18 — it reports
+   `unknown version "undefined"` and fails with `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`. The install
+   hook now prefers a node-gyp resolvable from the package over npm's bundled copy, so adding
+   `node-gyp` to your devDependencies is enough. Consumers on the prebuilt binary never compile
+   and are unaffected.
 
 ## 0.7.1
 
