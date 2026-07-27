@@ -17,9 +17,33 @@ information and, in addition, exposes Windows **session‑change notifications**
 npm install @mohammedchaibi/windows-process-tree
 ```
 
-Windows‑only. All functions are no‑ops or throw on non‑Windows platforms (noted per API below).
-The package ships a prebuilt binary and its source (`binding.gyp` + `src/`) so it can also be
-rebuilt against Electron via `electron-rebuild`.
+**No compiler required.** The published package ships a prebuilt Windows binary, so installing
+does not invoke node‑gyp, MSVC, or Python. Because the addon is built against Node‑API, that one
+binary is loaded by every supported Node.js *and* Electron version — there is nothing to rebuild
+when you change runtimes.
+
+The full source (`binding.gyp` + `src/`) ships too, so if no prebuilt binary matches your
+platform the install falls back to compiling locally, and `electron-rebuild` still works if you
+prefer to build it yourself.
+
+Windows‑only functionality: the package installs cleanly on macOS and Linux (where the native
+build is skipped entirely), but all functions are no‑ops or throw there — noted per API below.
+
+## Support matrix
+
+| | Supported |
+| --- | --- |
+| Platform | Windows 10, Windows 11, Windows Server 2016+ |
+| Prebuilt architectures | `win32-x64` (plus `win32-arm64` when the release build produces it) |
+| Node.js | **20.x, 22.x, 24.x** — validated in CI on every push |
+| Electron | **22 and newer** — any release providing Node‑API 8+ |
+| Node‑API level | 8 (pinned via `NAPI_VERSION`, so prebuilds stay forward‑compatible) |
+| Toolchain for source builds | MSVC **v142** (VS2019) or **v143** (VS2022) — both validated in CI |
+| Other platforms | Install succeeds; every API is a no‑op or throws |
+
+A source build needs nothing beyond a stock **"Desktop development with C++"** Visual Studio
+workload. No ClangCL toolset, and no optional Spectre‑mitigated libraries — see
+[Building](#building) if you want the hardened configuration used for published binaries.
 
 ## Process tree API
 
@@ -117,13 +141,48 @@ tree in well under 20ms, while the registry/session APIs avoid spawning `reg que
 ## Building
 
 ```sh
-npm install
-npx node-gyp rebuild   # build the native addon (build/Release/windows_process_tree.node)
+npm install            # also compiles the addon into build/Release/
 npm run compile        # compile the TypeScript wrapper (lib/*.js)
 npm test
+npm run rebuild        # recompile the addon after changing src/*.cc
 ```
 
-Requires the Windows build toolchain (Visual Studio C++ + node-gyp).
+Requires a stock Visual Studio **"Desktop development with C++"** workload (VS2019 or VS2022) plus
+Python, which node-gyp needs. node-gyp picks whichever Visual Studio it discovers and uses that
+install's default toolset, so no configuration is needed for either version.
+
+### Build knobs
+
+Both are read as `npm_config_*` environment variables and forwarded to gyp (see `binding.gyp`):
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `npm_config_hardened_build` | `0` | `1` enables Spectre mitigation and `/ZH:SHA_256`. **Requires the optional "MSVC — C++ Spectre‑mitigated libs" VS component**; without it MSBuild fails with `MSB8040`. Off by default so stock installs build; published prebuilds are built with it on. |
+| `npm_config_msvs_toolset` | *(auto)* | Pins `PlatformToolset`, e.g. `v142` or `v143`. Used by CI to validate both toolchains; normally leave unset. |
+
+```sh
+# reproduce a published binary locally
+npm_config_hardened_build=1 npx node-gyp rebuild
+
+# build the way CI validates the VS2019 toolchain
+npm_config_msvs_toolset=v142 npx node-gyp rebuild
+```
+
+### Producing prebuilt binaries
+
+```sh
+npm run prebuild         # -> prebuilds/win32-x64/node.napi.node (hardened)
+npm run prebuild:arm64   # -> prebuilds/win32-arm64/node.napi.node
+npm run prebuild:check   # assert the prebuilds exist, resolve, and expose the full API
+```
+
+Prebuilds are **not** committed; the `Release` workflow builds, verifies, and ships them inside
+the npm tarball. Note that `npm run prebuild` *moves* the binary out of `build/Release`, so run
+`npm run rebuild` afterwards to get a local development build back.
+
+At runtime the binary is located by [`node-gyp-build`](https://github.com/prebuild/node-gyp-build),
+which prefers `build/Release` (your local build) and falls back to `prebuilds/`. Set
+`PREBUILDS_ONLY=1` to force the packaged prebuild.
 
 ## Attribution & license
 
