@@ -1,0 +1,117 @@
+name: Release
+
+# Builds the prebuilt binaries that ship inside the npm tarball, verifies that a clean install
+# of that tarball needs no compiler, and optionally publishes.
+#
+# Pushing a `v*` tag only *builds and verifies*, attaching the artifacts to the GitHub release.
+# Publishing to npm is a deliberate, separate action: run this workflow manually with
+# `publish = true`. That way an accidental tag push can never publish.
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish the verified tarball to npm'
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: windows-2022
+    permissions:
+      contents: write   # attach assets to the GitHub release
+      id-token: write   # npm publish --provenance
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      - run: npm run lint
+      - run: npm run compile
+      - run: npm run test
+
+      # x64 is required. Published prebuilds are hardened (Spectre mitigation + /ZH:SHA_256),
+      # which the runner image has the optional VS components for; see scripts/prebuild.js.
+      - name: Build prebuild (win32-x64)
+        run: npm run prebuild
+
+      # arm64 is best effort: it needs the ARM64 MSVC cross tools. If it fails we still ship
+      # x64 rather than blocking the release, and the summary step below records the omission.
+      - name: Build prebuild (win32-arm64)
+        id: arm64
+        continue-on-error: true
+        run: npm run prebuild:arm64
+
+      - name: Verify prebuilds
+        run: npm run prebuild:check
+
+      - name: Report which prebuilds are shipping
+        shell: pwsh
+        run: |
+          $dirs = (Get-ChildItem prebuilds -Directory).Name
+          Write-Host "shipping prebuilds for: $($dirs -join ', ')"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '### Prebuilds shipped'
+          foreach ($d in $dirs) { Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- $d" }
+          if ('${{ steps.arm64.outcome }}' -ne 'success') {
+            Write-Warning 'win32-arm64 prebuild FAILED and is NOT included in this tarball; Windows-on-ARM consumers will compile from source.'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- win32-arm64: **failed, not included**'
+          }
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          npm pack --pack-destination "$env:RUNNER_TEMP"
+          if ($LASTEXITCODE -ne 0) { throw "npm pack failed" }
+          $tgz = Get-ChildItem (Join-Path $env:RUNNER_TEMP '*.tgz') | Select-Object -First 1
+          if (-not $tgz) { throw "no tarball was produced" }
+          "TARBALL=$($tgz.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Verify a clean install needs no compiler
+        shell: pwsh
+        env:
+          npm_config_nodedir: C:\definitely\not\a\real\nodedir
+        run: |
+          $consumer = Join-Path $env:RUNNER_TEMP 'consumer'
+          New-Item -ItemType Directory -Force -Path $consumer | Out-Null
+          Set-Location $consumer
+          '{"name":"consumer","version":"1.0.0","private":true}' | Out-File package.json -Encoding utf8
+          npm install "$env:TARBALL"
+          if ($LASTEXITCODE -ne 0) { throw "clean install failed" }
+          $pkg = Join-Path $consumer 'node_modules/@mohammedchaibi/windows-process-tree'
+          if (Test-Path (Join-Path $pkg 'build')) { throw "install compiled instead of using the prebuild" }
+          "CONSUMER_PKG=$pkg" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Smoke-test the installed tarball
+        env:
+          PREBUILDS_ONLY: '1'
+        run: node scripts/smoke-test.js "${{ env.CONSUMER_PKG }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-process-tree-package
+          path: |
+            ${{ env.TARBALL }}
+            prebuilds/**
+
+      - name: Attach assets to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" "${{ env.TARBALL }}" --clobber
+
+      - name: Publish to npm
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish "${{ env.TARBALL }}" --provenance --access public

@@ -1,0 +1,204 @@
+name: Windows toolchains
+
+# Validates that the native addon builds on stock Windows toolchains, and that a consumer
+# installing the published tarball never needs a compiler at all.
+#
+# Note on VS2019: GitHub retired the `windows-2019` runner image on 2025-06-30, so VS2019 is
+# covered by building with its toolset (`v142`) as hosted in VS2022 -- that is what determines
+# codegen and the CRT the addon links against. No GitHub-hosted image ships the VS2019 IDE.
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  source-build:
+    name: source / ${{ matrix.os }} / ${{ matrix.toolset }} / node ${{ matrix.node-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+        toolset: [v142, v143]
+        node-version: [20.x, 22.x, 24.x]
+    env:
+      # Consumed by node-gyp -> gyp as the `msvs_toolset` variable (see binding.gyp).
+      npm_config_msvs_toolset: ${{ matrix.toolset }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Show available MSVC toolsets
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -products * -format value -property installationVersion
+          Get-ChildItem "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC" -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty Name
+
+      # No prebuilds are committed, so this exercises the from-source path that consumers hit
+      # when no prebuild matches their platform.
+      - name: Install (compiles from source)
+        run: npm ci
+
+      - name: Assert expected toolset and no optional VS components
+        shell: pwsh
+        run: |
+          $proj = Get-Content build/windows_process_tree.vcxproj -Raw
+          $expected = $env:npm_config_msvs_toolset
+
+          if ($proj -notmatch "<PlatformToolset>$expected</PlatformToolset>") {
+            throw "Expected PlatformToolset $expected in the generated project."
+          }
+          Write-Host "ok  PlatformToolset = $expected"
+
+          # The regression this guards: SpectreMitigation needs the optional "MSVC -
+          # Spectre-mitigated libs" VS component, which a stock "Desktop development with C++"
+          # install does not have; if it leaks back into the default build, consumers get
+          # MSB8040 at install time. The hosted runners *do* have that component, so a green
+          # compile here would not catch it -- inspect the generated project instead.
+          if ($proj -match 'SpectreMitigation') {
+            throw "Default build requested SpectreMitigation; it must stay behind hardened_build=1."
+          }
+          Write-Host "ok  no SpectreMitigation in the default build"
+
+          if ($proj -match 'ZH:SHA_256') {
+            throw "Default build requested /ZH:SHA_256; it must stay behind hardened_build=1."
+          }
+          Write-Host "ok  no /ZH:SHA_256 in the default build"
+
+      - run: npm run compile
+      - run: npm run test
+      - name: Smoke-test the source build
+        run: node scripts/smoke-test.js
+
+  hardened-build:
+    name: hardened / ${{ matrix.toolset }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        toolset: [v142, v143]
+    env:
+      npm_config_msvs_toolset: ${{ matrix.toolset }}
+      # What the published prebuilds are built with.
+      npm_config_hardened_build: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      - name: Assert hardening was applied
+        shell: pwsh
+        run: |
+          $proj = Get-Content build/windows_process_tree.vcxproj -Raw
+          if ($proj -notmatch 'SpectreMitigation') { throw "hardened_build=1 did not enable SpectreMitigation." }
+          if ($proj -notmatch 'ZH:SHA_256') { throw "hardened_build=1 did not enable /ZH:SHA_256." }
+          Write-Host "ok  SpectreMitigation + /ZH:SHA_256 applied with toolset $env:npm_config_msvs_toolset"
+      - run: npm run compile
+      - run: npm run test
+
+  prebuilt-install:
+    name: prebuilt install / node ${{ matrix.node-version }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.x, 22.x, 24.x]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - run: npm ci
+
+      - name: Build and verify prebuilds
+        run: |
+          npm run prebuild
+          npm run prebuild:check
+
+      - name: Pack the tarball
+        shell: pwsh
+        run: |
+          npm pack --pack-destination "$env:RUNNER_TEMP"
+          if ($LASTEXITCODE -ne 0) { throw "npm pack failed" }
+          $tgz = Get-ChildItem (Join-Path $env:RUNNER_TEMP '*.tgz') | Select-Object -First 1
+          if (-not $tgz) { throw "no tarball was produced" }
+          "TARBALL=$($tgz.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "packed $($tgz.Name)"
+
+      # The whole point of shipping prebuilds: installing must not invoke a compiler. Pointing
+      # nodedir at a path that does not exist makes any node-gyp compile fail hard, so a green
+      # install proves the prebuild was used.
+      - name: Install into a clean project with compilation made impossible
+        shell: pwsh
+        env:
+          npm_config_nodedir: C:\definitely\not\a\real\nodedir
+        run: |
+          $consumer = Join-Path $env:RUNNER_TEMP 'consumer'
+          New-Item -ItemType Directory -Force -Path $consumer | Out-Null
+          Set-Location $consumer
+          '{"name":"consumer","version":"1.0.0","private":true}' | Out-File package.json -Encoding utf8
+
+          npm install "$env:TARBALL"
+          if ($LASTEXITCODE -ne 0) { throw "install failed -- a prebuild should have made compilation unnecessary" }
+
+          $pkg = Join-Path $consumer 'node_modules/@mohammedchaibi/windows-process-tree'
+          if (Test-Path (Join-Path $pkg 'build')) {
+            throw "a build/ directory was produced, so the install compiled instead of using the prebuild"
+          }
+          Write-Host "ok  no build/ directory -- nothing was compiled"
+
+          "CONSUMER_PKG=$pkg" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Smoke-test the installed package
+        env:
+          PREBUILDS_ONLY: '1'
+        run: node scripts/smoke-test.js "${{ env.CONSUMER_PKG }}"
+
+  electron:
+    name: electron ${{ matrix.electron }} loads the prebuild
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        # Floor and head of the supported range. A single Node-API binary has to serve both.
+        electron: ['22', 'latest']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      - run: npm run prebuild
+      - run: npm run compile
+
+      - name: Install Electron ${{ matrix.electron }}
+        run: npm install --no-save electron@${{ matrix.electron }}
+
+      - name: Load the prebuild under Electron
+        env:
+          # Runs the Electron binary as Node, so no display is needed. node-gyp-build still
+          # reports an Electron runtime and has to select a compatible prebuild.
+          ELECTRON_RUN_AS_NODE: '1'
+          # Ignore the build/ directory left by `npm ci` so the prebuild is what gets loaded.
+          PREBUILDS_ONLY: '1'
+        run: npx electron scripts/smoke-test.js .
