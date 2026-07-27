@@ -106,9 +106,22 @@ jobs:
 
       - name: Attach assets to the GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" "${{ env.TARBALL }}" --clobber
+        run: |
+          $tag = '${{ github.ref_name }}'
+
+          # Pushing a tag does not create a release object, so create one on first run.
+          gh release view $tag 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "no release for $tag yet, creating it"
+            gh release create $tag --title $tag --generate-notes --verify-tag
+            if ($LASTEXITCODE -ne 0) { throw "failed to create release $tag" }
+          }
+
+          gh release upload $tag "$env:TARBALL" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "failed to upload assets to $tag" }
 
       - name: Publish to npm
         if: github.event_name == 'workflow_dispatch' && inputs.publish
