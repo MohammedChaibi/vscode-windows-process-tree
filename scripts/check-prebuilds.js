@@ -79,7 +79,24 @@ if (failures.length) {
   for (const f of failures) {
     console.error('  - ' + f);
   }
+  console.error('\nRun `npm run prebuild` first. Publishing without a prebuild ships a package');
+  console.error('that every consumer has to compile, which defeats the point of shipping one.');
   process.exit(1);
 }
 
 console.log('\nprebuild check passed for: ' + arches.map((a) => 'win32-' + a).join(', '));
+
+// Not a failure -- x64 is the only required architecture -- but never let an arm64-less
+// tarball go out silently, because the omission is invisible once published.
+const shipping = fs.existsSync(path.join(ROOT, 'prebuilds'))
+  ? fs.readdirSync(path.join(ROOT, 'prebuilds'))
+  : [];
+console.log('prebuilds present: ' + (shipping.join(', ') || '(none)'));
+
+if (!shipping.includes('win32-arm64')) {
+  console.warn('');
+  console.warn('WARNING: no win32-arm64 prebuild. Windows-on-ARM consumers will compile from');
+  console.warn('WARNING: source. Build it with `npm run prebuild:arm64` (needs the "MSVC v143 -');
+  console.warn('WARNING: ARM64/ARM64EC build tools" VS component), or release via the CI');
+  console.warn('WARNING: workflow, which produces both architectures.');
+}

@@ -1,6 +1,29 @@
 # Changelog
 
+## 0.7.3 — 2026-07-27
+
+**Use this instead of 0.7.2.** Everything below is about packaging; there are no code or API
+changes relative to 0.7.2.
+
+### Fixed
+
+- **0.7.2 was published without its prebuilt binaries.** It was packed from a working tree where
+  `npm run prebuild` had not been run, so the tarball contained `src/` and `binding.gyp` but no
+  `prebuilds/`. It installs and works, but every consumer compiles from source — meaning the
+  headline fix of 0.7.2 (no compiler required) did not actually reach anyone. 0.7.3 ships the
+  binaries. npm does not allow republishing a version, hence the new number.
+
+### Added
+
+- A `prepublishOnly` hook runs `scripts/check-prebuilds.js`, so **publishing without a prebuilt
+  binary now fails loudly** instead of silently shipping a source-only package. It also warns
+  when `win32-arm64` is missing rather than dropping it silently.
+- `npm run release` — builds the x64 prebuild, then publishes with `--access public`.
+
 ## 0.7.2 — 2026-07-27
+
+> Superseded by 0.7.3: the published tarball was missing `prebuilds/`, so consumers still had to
+> compile. The toolchain fixes below are real and are included in 0.7.3.
 
 Install and build fixes for consumers on modern Node.js and stock Visual Studio installs.
 **No API changes** — this is a drop-in patch upgrade.

@@ -1,6 +1,6 @@
 {
   "name": "@mohammedchaibi/windows-process-tree",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Fetch a Windows process tree fast, with WTS session-change notifications and registry value reads",
   "main": "lib/index.js",
   "types": "typings/windows-process-tree.d.ts",
@@ -14,7 +14,9 @@
     "rebuild": "node-gyp rebuild",
     "prebuild": "node scripts/prebuild.js",
     "prebuild:arm64": "node scripts/prebuild.js --arch arm64",
-    "prebuild:check": "node scripts/check-prebuilds.js"
+    "prebuild:check": "node scripts/check-prebuilds.js",
+    "release": "npm run prebuild && npm publish --access public",
+    "prepublishOnly": "node scripts/check-prebuilds.js"
   },
   "author": "Mohammed Chaibi",
   "license": "MIT",

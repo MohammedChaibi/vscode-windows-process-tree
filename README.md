@@ -184,6 +184,22 @@ npm run prebuild:arm64   # -> prebuilds/win32-arm64/node.napi.node
 npm run prebuild:check   # assert the prebuilds exist, resolve, and expose the full API
 ```
 
+### Releasing
+
+The `Release` workflow is the recommended path: it builds **both** architectures, verifies that a
+clean install of the tarball needs no compiler, and publishes with provenance. To release from the
+command line instead:
+
+```sh
+npm login
+npm run release          # prebuild + npm publish --access public
+```
+
+A `prepublishOnly` hook refuses to publish when `prebuilds/` is empty, so a source-only tarball
+cannot be released by accident, and warns if `win32-arm64` is absent. Building arm64 locally needs
+the *"MSVC v143 – VS 2022 C++ ARM64/ARM64EC build tools"* component; without it, prefer the
+workflow so ARM consumers still get a binary.
+
 Prebuilds are **not** committed; the `Release` workflow builds, verifies, and ships them inside
 the npm tarball. Note that `npm run prebuild` *moves* the binary out of `build/Release`, so run
 `npm run rebuild` afterwards to get a local development build back.
