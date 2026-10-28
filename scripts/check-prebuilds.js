@@ -23,7 +23,9 @@ const EXPECTED_EXPORTS = [
   'startSessionNotifications',
   'stopSessionNotifications',
   'readRegistryValue',
-  'findRegistryValue'
+  'findRegistryValue',
+  'isForegroundWindow',
+  'getForegroundWindowInfo'
 ];
 
 const arches = process.argv.slice(2).length ? process.argv.slice(2) : ['x64'];

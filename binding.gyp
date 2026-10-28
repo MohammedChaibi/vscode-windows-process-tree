@@ -27,6 +27,7 @@
           "sources": [
             "src/addon.cc",
             "src/cpu_worker.cc",
+            "src/foreground_window.cc",
             "src/process.cc",
             "src/process_worker.cc",
             "src/process_commandline.cc",

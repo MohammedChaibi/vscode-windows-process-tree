@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.0 — 2026-10-28
+
+### Added
+
+- **`isForegroundWindow(handle)` and `getForegroundWindowInfo()`.** Windows keeps a thread's
+  active/focus window apart from the one system foreground window, and only the foreground
+  thread's focus window receives keystrokes. A background process that shows a window gets it
+  activated locally (title bar, caret) while the keyboard stays with the app the user last
+  touched; Electron's `isFocused()` and `focus` event report that local activation and cannot
+  tell the difference. `isForegroundWindow` compares `GetForegroundWindow()` with the HWND from
+  `BrowserWindow.getNativeWindowHandle()`; `getForegroundWindowInfo` names the process and title
+  that do hold the keyboard, for logging. Both are no-ops off Windows (`false` / `null`).
+
 ## 0.7.3 — 2026-07-27
 
 **Use this instead of 0.7.2.** Everything below is about packaging; there are no code or API

@@ -132,6 +132,32 @@ import { findRegistryValue } from '@mohammedchaibi/windows-process-tree';
 const clientName = findRegistryValue('CLIENTNAME');
 ```
 
+## Foreground window
+
+Windows keeps two things apart. Each thread has its own *active* and *focus* window, which a
+process may set for itself at any time (`ShowWindow`, `SetActiveWindow`, `SetFocus`). The system
+has one *foreground* window, and only the foreground thread's focus window receives keyboard
+input. A background process asking for the foreground is refused unless it owns the last input
+event; Windows then activates the window locally and flashes its taskbar button. The window shows
+an active title bar and a blinking caret while every keystroke still goes to the other app.
+Electron's `BrowserWindow.isFocused()` and its `focus` event report that local activation, so they
+cannot tell the two apart. These can:
+
+```ts
+import { isForegroundWindow, getForegroundWindowInfo } from '@mohammedchaibi/windows-process-tree';
+
+win.show();
+win.focus();
+if (!isForegroundWindow(win.getNativeWindowHandle())) {
+  const holder = getForegroundWindowInfo(); // { pid, title } of who has the keyboard, or null
+  // e.g. minimize() + restore(), the one move Windows honours for a background process
+}
+```
+
+`isForegroundWindow` takes the HWND as `getNativeWindowHandle()` returns it (a `Buffer` holding the
+pointer). `getForegroundWindowInfo` returns `null` when there is no foreground window (locked
+screen, desktop switch). On non‑Windows platforms they return `false` / `null`.
+
 ## Why a native module?
 
 Shelling out to `wmic.exe`/`reg.exe` is slow (a process spawn per call, ~100ms+) and, for the

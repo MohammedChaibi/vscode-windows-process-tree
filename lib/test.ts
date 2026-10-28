@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as child_process from 'child_process';
 import * as path from 'path';
-import { getProcessTree, getProcessList, getProcessCpuUsage, ProcessDataFlag, buildProcessTree, filterProcessList } from './index';
+import { getProcessTree, getProcessList, getProcessCpuUsage, ProcessDataFlag, buildProcessTree, filterProcessList, isForegroundWindow, getForegroundWindowInfo } from './index';
 import { Worker, isMainThread } from 'worker_threads';
 import { IProcessCpuInfo, IProcessInfo, IProcessTreeNode } from '@mohammedchaibi/windows-process-tree';
 import * as promises from './promises';
@@ -26,6 +26,32 @@ function pollUntil(makePromise: () => Promise<boolean>, cb: () => void, interval
 
 if (isWindows) {
   const native = require('node-gyp-build')(path.join(__dirname, '..'));
+
+  describe('isForegroundWindow', () => {
+    it('should throw if the handle is not a Buffer', () => {
+      assert.throws(() => native.isForegroundWindow());
+      assert.throws(() => native.isForegroundWindow('not a handle'));
+    });
+
+    it('should throw if the Buffer is shorter than a native window handle', () => {
+      assert.throws(() => native.isForegroundWindow(Buffer.alloc(2)));
+    });
+
+    it('should be false for a handle that is no window', () => {
+      assert.strictEqual(isForegroundWindow(Buffer.alloc(8)), false);
+    });
+  });
+
+  describe('getForegroundWindowInfo', () => {
+    it('should name the foreground window, or be null without an interactive desktop', () => {
+      const info = getForegroundWindowInfo();
+      if (info === null) {
+        return; // a service session (CI) has no foreground window
+      }
+      assert.strictEqual(typeof info.pid, 'number');
+      assert.strictEqual(typeof info.title, 'string');
+    });
+  });
 
   describe('getRawProcessList', () => {
     it('should throw if arguments are not provided', (done) => {

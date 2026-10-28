@@ -136,4 +136,26 @@ declare module '@mohammedchaibi/windows-process-tree' {
    * maxDepth defaults to 1. Returns '' when absent or on non-Windows.
    */
   export function findRegistryValue(valueName: string, rootKeyPath?: string, maxDepth?: number): string;
+
+  /** Who holds the system foreground window, i.e. the keyboard. See getForegroundWindowInfo. */
+  export interface IForegroundWindowInfo {
+    /** The process id owning the foreground window. */
+    pid: number;
+    /** The foreground window's title; '' when it has none. */
+    title: string;
+  }
+
+  /**
+   * Whether the window is the system foreground window - the one the keyboard goes to. handle is
+   * the HWND as BrowserWindow.getNativeWindowHandle() returns it. Electron's isFocused() and
+   * focus event report a thread-local activation that Windows grants a background process while
+   * keeping the keyboard elsewhere; this tells the two apart. Returns false on non-Windows.
+   */
+  export function isForegroundWindow(handle: Buffer): boolean;
+
+  /**
+   * The process id and title of the system foreground window, for a log line naming who has the
+   * keyboard. Returns null when there is no foreground window or on non-Windows platforms.
+   */
+  export function getForegroundWindowInfo(): IForegroundWindowInfo | null;
 }

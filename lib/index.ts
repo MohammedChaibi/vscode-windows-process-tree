@@ -321,3 +321,42 @@ export function findRegistryValue(valueName: string, rootKeyPath?: string, maxDe
   }
   return native.findRegistryValue(valueName, rootKeyPath, maxDepth);
 }
+
+/** Who holds the system foreground window, i.e. the keyboard. See {@link getForegroundWindowInfo}. */
+export interface IForegroundWindowInfo {
+  /** The process id owning the foreground window. */
+  pid: number;
+  /** The foreground window's title; `''` when it has none. */
+  title: string;
+}
+
+/**
+ * Whether the window is the system foreground window - the one the keyboard goes to. `handle` is
+ * the HWND as `BrowserWindow.getNativeWindowHandle()` returns it.
+ *
+ * Windows keeps two notions apart: each thread has its own active and focus window, which a
+ * process may set for itself at any time, while the system has one foreground window, and only
+ * that thread's focus window receives keystrokes. A background process asking for the foreground
+ * is refused unless it owns the last input; Windows then activates the window locally and flashes
+ * its taskbar button, so it shows a caret while every keystroke still goes elsewhere. Electron's
+ * `isFocused()` and `focus` event report that local activation and cannot tell the two apart;
+ * this can. Returns `false` on non-Windows platforms.
+ */
+export function isForegroundWindow(handle: Buffer): boolean {
+  if (process.platform !== 'win32') {
+    return false;
+  }
+  return native.isForegroundWindow(handle);
+}
+
+/**
+ * The process id and title of the system foreground window, for a log line naming who has the
+ * keyboard. Returns `null` when there is no foreground window (locked screen, desktop switch) or
+ * on non-Windows platforms.
+ */
+export function getForegroundWindowInfo(): IForegroundWindowInfo | null {
+  if (process.platform !== 'win32') {
+    return null;
+  }
+  return native.getForegroundWindowInfo();
+}

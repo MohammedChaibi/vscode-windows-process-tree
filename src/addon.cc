@@ -5,6 +5,7 @@
 
 #include <napi.h>
 #include "cpu_worker.h"
+#include "foreground_window.h"
 #include "process_worker.h"
 #include "session_notifier.h"
 #include "volatile_env.h"
@@ -59,6 +60,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("stopSessionNotifications", Napi::Function::New(env, StopSessionNotifications));
   exports.Set("readRegistryValue", Napi::Function::New(env, ReadRegistryValue));
   exports.Set("findRegistryValue", Napi::Function::New(env, FindRegistryValue));
+  exports.Set("isForegroundWindow", Napi::Function::New(env, IsForegroundWindow));
+  exports.Set("getForegroundWindowInfo", Napi::Function::New(env, GetForegroundWindowInfo));
   return exports;
 }
 
